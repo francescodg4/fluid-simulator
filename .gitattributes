@@ -1,2 +1,9 @@
-# Default behaviour
-* text=auto
+# Text files: LF in the repository, CRLF in the working tree.
+* text=auto eol=crlf
+
+# Binary assets
+*.zip binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary
