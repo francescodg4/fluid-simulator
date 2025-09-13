@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.16)
+
+Include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.15.1
+)
+
+FetchContent_MakeAvailable(Catch2)
+
+add_executable(run-test
+  test_basic.cpp
+)
+
+target_link_libraries(run-test PRIVATE Catch2::Catch2WithMain)
+
+target_include_directories(run-test PRIVATE ../mylibrary/include)
+target_link_libraries(run-test PRIVATE mylibrary)
+
+set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1) # disable generation of unused catch2 targets
+
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+
+include(CTest)
+include(Catch)
+catch_discover_tests(run-test)
+
+enable_testing()

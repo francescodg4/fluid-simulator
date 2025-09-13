@@ -1,0 +1,11 @@
+{
+    "image": "qt6-opencv:v1.0",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools"
+            ]
+        }
+    }
+}

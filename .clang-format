@@ -1,0 +1,9 @@
+---
+BasedOnStyle:  WebKit
+BinPackArguments: false
+BinPackParameters: false
+ColumnLimit: 0
+FixNamespaceComments: true
+InsertBraces: true
+SortIncludes: false
+...
