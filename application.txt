@@ -1,0 +1,12 @@
+The candidate will:
+- Design and develop the modular C++/Qt application framework of LivSpace, ensuring clean architecture, separation of concerns and straightforward extension with additional clinical modules.
+- Re-write in C++ the high-performance volumetric and multi-planar visualisation, including transfer functions, interaction models and rendering optimisation for large CT volumes.
+- Re-write in C++ the geometric processing and morphological analysis user interface, integrating segmentation and centerline extraction pipelines and the related manual editing tools.
+- Implement the asynchronous client-side pipeline towards the internal computational backend (e.g. REST/gRPC) and the visualisation of the returned physiological fields.
+- Develop the shared service layer (data providers) and the centralised reporting service for clinical PDF report generation.
+
+REQUIRED QUALIFICATION AND EXPERTISE
+- Solid experience in modern C++ development.
+- Proven experience with Qt (Qt 6) for the development of complex user interfaces.
+- Experience with VTK or equivalent scientific visualisation toolkits, including 3D rendering and interaction pipelines.
+- Experience with unit testing frameworks.
