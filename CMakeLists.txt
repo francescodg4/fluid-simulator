@@ -1,56 +1,29 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 
-project(CppTemplateProject VERSION 0.0.0)
+project(WindTunnel VERSION 0.1.0 LANGUAGES CXX)
 
-Include(FetchContent)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
 
-# ---- spdlog ----
-FetchContent_Declare(
-  spdlog
-  GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.15.3
-)
-FetchContent_MakeAvailable(spdlog)
+option(WINDTUNNEL_BUILD_TESTS "Build the unit tests" ON)
 
-# ---- argparse ----
-FetchContent_Declare(
-  argparse
-  GIT_REPOSITORY https://github.com/p-ranav/argparse.git
-  GIT_TAG v3.2
-)
-FetchContent_MakeAvailable(argparse)
+include(FetchContent)
 
+add_subdirectory(core)
 
-add_executable(application
-  src/main.cpp
-)
-
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-configure_file(src/version.h.in version.h)
-
-# Statically linked library
-add_subdirectory(mylibrary)
-
-target_link_libraries(application PRIVATE mylibrary)
-target_include_directories(application PRIVATE mylibrary/include)
-
-target_link_libraries(application PRIVATE spdlog argparse)
-
-# Testing
-add_subdirectory(tests)
-
-# Install
-install(TARGETS application RUNTIME DESTINATION bin)
-install(
-  DIRECTORY mylibrary/include/
-  DESTINATION include
-  FILES_MATCHING PATTERN "*.h*")
+if(WINDTUNNEL_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
 
 # Packaging
-set(CPACK_PACKAGE_NAME "CppApplication")
+set(CPACK_PACKAGE_NAME "WindTunnel")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "maintainer")
 set(CPACK_PACKAGE_CONTACT "maintainer@email.com")
-
 include(CPack)
