@@ -7,6 +7,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(run-test
   test_geometry.cpp
+  test_solver.cpp
 )
 target_link_libraries(run-test PRIVATE fluid::core Catch2::Catch2WithMain)
 

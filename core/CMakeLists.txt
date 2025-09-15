@@ -1,5 +1,6 @@
 # fluidcore: GUI-independent simulation & geometry library (pure C++23, unit tested).
 add_library(fluidcore STATIC
+  src/LbmSolver.cpp
   src/Mesh.cpp
   src/ObjLoader.cpp
   src/SceneLayout.cpp
