@@ -24,7 +24,7 @@ struct LbmParameters {
 /**
  * D3Q19 lattice Boltzmann solver for external aerodynamics in a wind tunnel:
  * BGK collision + Smagorinsky sub-grid model, fused pull streaming, equilibrium inlet (-X),
- * zero-gradient outlet (+X), no-slip/moving floor (-Y), free-slip ceiling and side walls,
+ * pressure outlet (+X), no-slip floor with a rolling road outside the footprint (-Y), free-slip ceiling and side walls,
  * half-way bounce-back on solid cells and drag/lift via momentum exchange.
  */
 class LbmSolver {
@@ -82,6 +82,7 @@ private:
     GridSpec m_grid;
     std::vector<std::uint8_t> m_solid;
     std::vector<std::uint8_t> m_type;
+    std::vector<std::uint8_t> m_floorBelt; ///< per (i, k): 1 where the rolling road moves
     ThreadPool& m_pool;
     LbmParameters m_params;
 

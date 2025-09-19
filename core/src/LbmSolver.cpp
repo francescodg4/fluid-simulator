@@ -59,12 +59,21 @@ void LbmSolver::classifyCells()
 {
     m_type.assign(m_cells, Interior);
     m_fluidCells = m_cells - static_cast<std::size_t>(std::count(m_solid.begin(), m_solid.end(), std::uint8_t { 1 }));
+    m_floorBelt.assign(static_cast<std::size_t>(m_grid.nx) * m_grid.nz, 1);
     for (int k = 0; k < m_grid.nz; ++k) {
         for (int j = 0; j < m_grid.ny; ++j) {
             for (int i = 0; i < m_grid.nx; ++i) {
                 const std::size_t n = m_grid.index(i, j, k);
                 if (m_solid[n]) {
                     m_type[n] = Solid;
+                    // Keep the belt still under (and one cell around) the footprint.
+                    for (int dk = -1; dk <= 1; ++dk) {
+                        for (int di = -1; di <= 1; ++di) {
+                            if (m_grid.contains(i + di, 0, k + dk)) {
+                                m_floorBelt[static_cast<std::size_t>(i + di) + static_cast<std::size_t>(m_grid.nx) * (k + dk)] = 0;
+                            }
+                        }
+                    }
                     continue;
                 }
                 for (int q = 1; q < Q; ++q) {
@@ -151,7 +160,18 @@ float LbmSolver::pullBoundary(int q, int i, int j, int k, std::size_t n, const f
         return m_inletEq[q * plane + static_cast<std::size_t>(j) + static_cast<std::size_t>(m_grid.ny) * k];
     }
     if (si >= m_grid.nx) {
-        si = m_grid.nx - 1; // zero-gradient outflow
+        // Pressure outlet: equilibrium at the reference density with the cell's own velocity
+        // (taken from its post-collision populations, collision conserves momentum).
+        float rho = 0.0f;
+        Vec3f j3;
+        for (int p = 0; p < Q; ++p) {
+            const float v = src[p * m_cells + n];
+            rho += v;
+            j3 += Vec3f(static_cast<float>(cx[p]), static_cast<float>(cy[p]), static_cast<float>(cz[p])) * v;
+        }
+        const Vec3f u = rho > 0.0f ? j3 / rho : Vec3f {};
+        const float cu = 3.0f * (static_cast<float>(cx[q]) * u.x + static_cast<float>(cy[q]) * u.y + static_cast<float>(cz[q]) * u.z);
+        return weight[q] * (1.0f + cu + 0.5f * cu * cu - 1.5f * dot(u, u));
     }
     if (sj >= m_grid.ny) {
         sj = j; // free-slip ceiling: specular reflection
@@ -159,7 +179,10 @@ float LbmSolver::pullBoundary(int q, int i, int j, int k, std::size_t n, const f
     }
     if (sj < 0) {
         // Floor: half-way bounce-back, optionally moving with the free stream (rolling road).
-        const float uw = m_params.movingFloor ? m_params.inletVelocity : 0.0f;
+        // The belt only runs outside the vehicle footprint: the wheels are not spinning, and a belt
+        // moving under a stationary contact patch would pump fluid out of the enclosed pockets.
+        const bool belt = m_params.movingFloor && m_floorBelt[static_cast<std::size_t>(i) + static_cast<std::size_t>(m_grid.nx) * k];
+        const float uw = belt ? m_params.inletVelocity : 0.0f;
         return src[opposite(q) * m_cells + n] + 6.0f * weight[q] * static_cast<float>(cx[q]) * uw;
     }
     if (sk < 0 || sk >= m_grid.nz) {
@@ -169,10 +192,13 @@ float LbmSolver::pullBoundary(int q, int i, int j, int k, std::size_t n, const f
     const std::size_t s = m_grid.index(si, sj, sk);
     if (m_solid[s]) {
         const float fo = src[opposite(q) * m_cells + n];
-        // Momentum exchange: the population heading into the wall is reflected back.
-        force[0] -= 2.0 * cx[q] * fo;
-        force[1] -= 2.0 * cy[q] * fo;
-        force[2] -= 2.0 * cz[q] * fo;
+        // Momentum exchange: the population heading into the wall is reflected back. The rest
+        // state (w_q, i.e. rho = 1) is subtracted so that only gauge pressure contributes: surfaces
+        // in contact with the floor would otherwise feel the ambient pressure from one side only.
+        const double exchange = 2.0 * (static_cast<double>(fo) - weight[q]);
+        force[0] -= cx[q] * exchange;
+        force[1] -= cy[q] * exchange;
+        force[2] -= cz[q] * exchange;
         return fo;
     }
     return src[qq * m_cells + s];
