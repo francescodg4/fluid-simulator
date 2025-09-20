@@ -1,10 +1,12 @@
 # fluidcore: GUI-independent simulation & geometry library (pure C++23, unit tested).
 add_library(fluidcore STATIC
+  src/FlowField.cpp
   src/LbmSolver.cpp
   src/Mesh.cpp
   src/ObjLoader.cpp
   src/SceneLayout.cpp
   src/ThreadPool.cpp
+  src/TransferFunction.cpp
   src/Voxelizer.cpp
 )
 add_library(fluid::core ALIAS fluidcore)
