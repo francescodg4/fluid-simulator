@@ -3,6 +3,7 @@ add_library(fluidcore STATIC
   src/FlowField.cpp
   src/LbmSolver.cpp
   src/Mesh.cpp
+  src/MeshSimplify.cpp
   src/ObjLoader.cpp
   src/SceneLayout.cpp
   src/ThreadPool.cpp

@@ -1,4 +1,5 @@
 #include <fluid/Math.hpp>
+#include <fluid/MeshSimplify.hpp>
 #include <fluid/ObjLoader.hpp>
 #include <fluid/SceneLayout.hpp>
 #include <fluid/ThreadPool.hpp>
@@ -155,5 +156,39 @@ TEST_CASE("Voxelizer fills closed and open-bottom boxes", "[voxel]")
         CHECK(v.solid[grid.index(10, 10, 10)] == 1);
         CHECK(v.solid[grid.index(2, 10, 10)] == 0);
         CHECK(v.frontalCells == 100u);
+    }
+}
+
+TEST_CASE("Vertex clustering keeps structure and reduces dense geometry", "[lod]")
+{
+    // A finely tessellated plane (object 0) next to a coarse box (object 1).
+    std::string obj = "o Plane\nusemtl Paint\n";
+    const int n = 40;
+    for (int j = 0; j <= n; ++j) {
+        for (int i = 0; i <= n; ++i) {
+            obj += "v " + std::to_string(i / static_cast<float>(n)) + " 0 " + std::to_string(j / static_cast<float>(n)) + "\n";
+        }
+    }
+    obj += "vn 0 1 0\n";
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < n; ++i) {
+            const int a = j * (n + 1) + i + 1;
+            obj += "f " + std::to_string(a) + "//1 " + std::to_string(a + n + 1) + "//1 " + std::to_string(a + n + 2) + "//1 " + std::to_string(a + 1) + "//1\n";
+        }
+    }
+    auto mesh = parseObj(obj + boxObj(2.0f, 3.0f, true, (n + 1) * (n + 1)));
+    REQUIRE(mesh);
+    REQUIRE(mesh->objects.size() == 2);
+
+    const TriangleMesh lod = simplifyByClustering(*mesh, 0.1f);
+    REQUIRE(lod.objects.size() == 2);
+    CHECK(lod.objects[0].name == "Plane");
+    CHECK(lod.objects[0].parts.front().material == "Paint");
+    CHECK(lod.objects[0].triangleCount() < mesh->objects[0].triangleCount() / 8);
+    CHECK(lod.objects[0].triangleCount() > 50);
+    CHECK(lod.objects[1].triangleCount() == 12); // large features survive untouched
+    CHECK(lod.objects[0].bounds.max.x == Approx(1.0f).margin(0.1f));
+    for (const Vec3f& nrm : lod.normals) {
+        CHECK(length(nrm) == Approx(1.0f).margin(1e-4));
     }
 }
