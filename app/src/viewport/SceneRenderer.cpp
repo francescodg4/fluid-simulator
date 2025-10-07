@@ -5,7 +5,7 @@
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLShaderProgram>
 
-#include <spdlog/spdlog.h>
+#include "logging/Logging.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -63,7 +63,7 @@ bool SceneRenderer::initialize(QString* error)
     const QString renderer = QString::fromLatin1(reinterpret_cast<const char*>(glGetString(GL_RENDERER))).toLower();
     m_software = renderer.contains("llvmpipe") || renderer.contains("softpipe") || renderer.contains("swrast") || renderer.contains("swiftshader")
         || renderer.contains("software");
-    spdlog::info("OpenGL renderer: {}{}", m_info.toStdString(), m_software ? " (software rasterizer: performance mode)" : "");
+    logging::get(logging::channel::Render)->info("OpenGL renderer: {}{}", m_info.toStdString(), m_software ? " (software rasterizer: performance mode)" : "");
 
     QString log;
     m_background = program("fullscreen.vert", "background.frag", &log);
@@ -76,7 +76,7 @@ bool SceneRenderer::initialize(QString* error)
     m_slice = program("slice.vert", "slice.frag", &log);
     m_volume = program("volume.vert", "volume.frag", &log);
     if (!log.isEmpty()) {
-        spdlog::error("Shader compilation failed:\n{}", log.toStdString());
+        logging::get(logging::channel::Render)->error("Shader compilation failed:\n{}", log.toStdString());
         if (error) {
             *error = log;
         }

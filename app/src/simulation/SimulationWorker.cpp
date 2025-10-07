@@ -6,12 +6,14 @@
 #include <QElapsedTimer>
 #include <QTimer>
 
-#include <spdlog/spdlog.h>
+#include "logging/Logging.hpp"
 
 #include <cmath>
 
 namespace fluid::app {
 namespace {
+
+    std::shared_ptr<spdlog::logger> simLog() { return logging::get(logging::channel::Simulation); }
 
     constexpr double kAirDensity = 1.225; // kg/m^3
     constexpr double kAirViscosity = 1.5e-5; // m^2/s
@@ -59,11 +61,13 @@ void SimulationWorker::rebuild(const RebuildRequest& request)
     if (!request.mesh || request.collisionObjects.empty()) {
         m_solver.reset();
         m_domain = {};
+        simLog()->warn("Nothing to simulate: no collision objects");
         emit statusMessage(tr("Nothing to simulate: no collision objects"));
         return;
     }
     QElapsedTimer timer;
     timer.start();
+    simLog()->debug("Voxelizing {} collision objects", request.collisionObjects.size());
     emit statusMessage(tr("Voxelizing %1 collision objects…").arg(request.collisionObjects.size()));
 
     m_flow = request.flow;
@@ -88,7 +92,7 @@ void SimulationWorker::rebuild(const RebuildRequest& request)
     m_solver->macroscopic(m_field.density, m_field.velocity);
     configureTracers();
 
-    spdlog::info("Domain {}x{}x{} ({} cells, dx = {:.3f} m), {} solid, frontal area {:.2f} m^2, built in {:.2f} s",
+    simLog()->info("Domain {}x{}x{} ({} cells, dx = {:.3f} m), {} solid, frontal area {:.2f} m^2, built in {:.2f} s",
         domain.grid.nx, domain.grid.ny, domain.grid.nz, domain.grid.cellCount(), domain.grid.dx, domain.solidCells, domain.frontalArea, domain.voxelizeSeconds);
     emit domainReady(domain);
     emit statusMessage(tr("Wind tunnel ready: %1 × %2 × %3 cells").arg(domain.grid.nx).arg(domain.grid.ny).arg(domain.grid.nz));
@@ -114,6 +118,8 @@ void SimulationWorker::configureTracers()
 
 void SimulationWorker::setFlow(const FlowSettings& flow)
 {
+    simLog()->debug("Flow settings: U = {:.1f} m/s, Re = {:.0f}, Cs = {:.3f}, u_lattice = {:.3f}, turbulence = {:.3f}, rolling road {}, {} steps/frame",
+        flow.windSpeed, flow.reynolds, flow.smagorinsky, flow.latticeVelocity, flow.turbulence, flow.movingFloor ? "on" : "off", flow.stepsPerFrame);
     m_flow = flow;
     applyFlow();
 }
@@ -132,6 +138,8 @@ void SimulationWorker::setTracers(const TracerSettings& tracers)
 {
     const bool reseed = tracers.particles != m_tracers.particles || tracers.particleCount != m_tracers.particleCount
         || tracers.rakePosition != m_tracers.rakePosition || tracers.rakeHeight != m_tracers.rakeHeight || tracers.rakeWidth != m_tracers.rakeWidth;
+    simLog()->debug("Tracers: {}x{} streamline seeds, {} particles (streamlines {}, particles {})", tracers.seedsAcross, tracers.seedsVertical,
+        tracers.particleCount, tracers.streamlines ? "on" : "off", tracers.particles ? "on" : "off");
     m_tracers = tracers;
     if (reseed) {
         configureTracers();
@@ -151,8 +159,10 @@ void SimulationWorker::setRunning(bool running)
     }
     m_running = running;
     if (m_running) {
+        simLog()->info("Solver running from iteration {}", m_solver->stepCount());
         m_timer->start();
     } else {
+        simLog()->info("Solver paused at iteration {} ({:.0f} MLUPS)", m_solver ? m_solver->stepCount() : 0, m_solver ? m_solver->mlups() : 0.0);
         m_timer->stop();
         publish(true);
     }
@@ -174,6 +184,7 @@ void SimulationWorker::resetFlow()
     if (!m_solver) {
         return;
     }
+    simLog()->info("Flow reset to the free stream");
     m_solver->reset();
     configureTracers();
     publish(true);
@@ -196,7 +207,7 @@ void SimulationWorker::tick()
     m_pendingParticleSteps += static_cast<float>(m_flow.stepsPerFrame);
     if (m_solver->diverged()) {
         emit statusMessage(tr("Solver diverged and was restarted — try a lower Reynolds number or a higher resolution"));
-        spdlog::warn("LBM solver diverged at Re = {}", m_flow.reynolds);
+        simLog()->warn("LBM solver diverged at Re = {}", m_flow.reynolds);
     }
     if (!m_inFlight && m_sinceSnapshot.elapsed() >= kSnapshotIntervalMs) {
         publish(false);
@@ -358,7 +369,10 @@ std::shared_ptr<const StreamlineGeometry> SimulationWorker::buildStreamlines()
 
     StreamlineOptions options;
     options.maxPoints = m_tracers.maxPoints;
+    QElapsedTimer timer;
+    timer.start();
     const auto lines = traceStreamlines(m_field, seeds, options);
+    simLog()->trace("Traced {} streamlines in {:.1f} ms", lines.size(), static_cast<double>(timer.nsecsElapsed()) * 1e-6);
 
     auto geometry = std::make_shared<StreamlineGeometry>();
     std::size_t points = 0;

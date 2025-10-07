@@ -9,9 +9,12 @@
 #include <QPromise>
 #include <QtConcurrent/QtConcurrentRun>
 
-#include <spdlog/spdlog.h>
+#include "logging/Logging.hpp"
 
 namespace fluid::app {
+namespace {
+    std::shared_ptr<spdlog::logger> ioLog() { return logging::get(logging::channel::Io); }
+}
 
 MeshProvider::MeshProvider(QObject* parent)
     : QObject(parent)
@@ -21,16 +24,17 @@ MeshProvider::MeshProvider(QObject* parent)
     });
     connect(&m_watcher, &QFutureWatcher<MeshLoadResult>::finished, this, [this] {
         if (m_watcher.isCanceled() || m_watcher.future().resultCount() == 0) {
+            ioLog()->warn("Model loading cancelled");
             emit failed(tr("Loading cancelled"));
             return;
         }
         const MeshLoadResult result = m_watcher.result();
         if (!result.mesh) {
-            spdlog::error("Model loading failed: {}", result.error.toStdString());
+            ioLog()->error("Model loading failed: {}", result.error.toStdString());
             emit failed(result.error);
             return;
         }
-        spdlog::info("Loaded '{}' in {:.2f} s: {} vertices, {} triangles, {} objects (LOD: {} triangles)",
+        ioLog()->info("Loaded '{}' in {:.2f} s: {} vertices, {} triangles, {} objects (LOD: {} triangles)",
             result.path.toStdString(), result.seconds, result.mesh->vertexCount(), result.mesh->triangleCount(), result.mesh->objects.size(),
             result.lod ? result.lod->triangleCount() : result.mesh->triangleCount());
         emit loaded(result);
@@ -47,6 +51,7 @@ void MeshProvider::load(const QString& path)
 {
     cancel();
     m_watcher.waitForFinished();
+    ioLog()->debug("Loading {} on the thread pool", path.toStdString());
     emit started(path);
 
     m_watcher.setFuture(QtConcurrent::run([path](QPromise<MeshLoadResult>& promise) {

@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include "logging/Logging.hpp"
 #include "ui/Theme.hpp"
 #include "version.h"
 
@@ -8,34 +9,14 @@
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
+#include <QStandardPaths>
 #include <QSurfaceFormat>
 
 #include <argparse/argparse.hpp>
-#include <spdlog/spdlog.h>
 
 #include <iostream>
 
 namespace {
-
-void qtMessageHandler(QtMsgType type, const QMessageLogContext&, const QString& message)
-{
-    const std::string text = message.toStdString();
-    switch (type) {
-    case QtDebugMsg:
-        spdlog::debug("[qt] {}", text);
-        break;
-    case QtInfoMsg:
-        spdlog::info("[qt] {}", text);
-        break;
-    case QtWarningMsg:
-        spdlog::warn("[qt] {}", text);
-        break;
-    case QtCriticalMsg:
-    case QtFatalMsg:
-        spdlog::error("[qt] {}", text);
-        break;
-    }
-}
 
 /** Creates a throw-away context to find out whether OpenGL runs on a CPU rasterizer. */
 bool probeSoftwareRasterizer()
@@ -64,7 +45,9 @@ int main(int argc, char* argv[])
     program.add_argument("--screenshot").help("save a window screenshot after --delay seconds and quit").default_value(std::string());
     program.add_argument("--report").help("export a PDF report after --delay seconds and quit").default_value(std::string());
     program.add_argument("--delay").help("seconds before --screenshot / --report").default_value(8.0).scan<'g', double>();
-    program.add_argument("--verbose").help("debug logging").default_value(false).implicit_value(true);
+    program.add_argument("--verbose").help("shortcut for --log-level debug").default_value(false).implicit_value(true);
+    program.add_argument("--log-level").help("trace, debug, info, warn, error, critical or off").default_value(std::string("info"));
+    program.add_argument("--log-file").help("rotating log file (default: application data folder; 'none' disables it)").default_value(std::string());
 
     try {
         program.parse_args(argc, argv);
@@ -72,12 +55,6 @@ int main(int argc, char* argv[])
         std::cerr << err.what() << '\n' << program;
         return EXIT_FAILURE;
     }
-    spdlog::set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
-    if (program.get<bool>("--verbose")) {
-        spdlog::set_level(spdlog::level::debug);
-    }
-    qInstallMessageHandler(qtMessageHandler);
-
     // OpenGL 3.3 core for the viewport; multisampling for smooth QPainter overlays.
     QSurfaceFormat format;
     format.setRenderableType(QSurfaceFormat::OpenGL);
@@ -93,11 +70,29 @@ int main(int argc, char* argv[])
     QApplication::setApplicationName(QStringLiteral("Wind Tunnel"));
     QApplication::setOrganizationName(QStringLiteral("WindTunnel"));
     QApplication::setApplicationVersion(QStringLiteral(APPLICATION_VERSION_STR));
+
+    namespace logging = fluid::app::logging;
+    logging::Options logOptions;
+    logOptions.level = program.get<bool>("--verbose") ? spdlog::level::debug
+                                                      : logging::parseLevel(program.get<std::string>("--log-level"), spdlog::level::info);
+    const std::string logFile = program.get<std::string>("--log-file");
+    if (logFile.empty()) {
+        logOptions.file = (QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/logs/windtunnel.log")).toStdString();
+    } else if (logFile != "none") {
+        logOptions.file = logFile;
+    }
+    logging::initialize(logOptions);
+    const auto log = logging::get(logging::channel::App);
+    log->info("Wind Tunnel {} starting (Qt {}, log level {})", APPLICATION_VERSION_STR, qVersion(), spdlog::level::to_string_view(logOptions.level));
+    if (!logging::logFile().empty()) {
+        log->info("Writing log file {}", logging::logFile().string());
+    }
+
     fluid::app::theme::apply(app);
     if (probeSoftwareRasterizer()) {
         // Multisampling the whole widget is prohibitively slow on CPU rasterizers; the scene
         // renderer switches to FXAA and the level-of-detail mesh on its own.
-        spdlog::warn("Software OpenGL rasterizer detected: using performance rendering settings");
+        logging::get(logging::channel::Render)->warn("Software OpenGL rasterizer detected: using performance rendering settings");
         format.setSamples(0);
         QSurfaceFormat::setDefaultFormat(format);
     }
@@ -111,12 +106,17 @@ int main(int argc, char* argv[])
     options.reportPath = QString::fromStdString(program.get<std::string>("--report"));
     options.automationDelay = program.get<double>("--delay");
     if (!QFileInfo::exists(options.modelPath)) {
-        spdlog::warn("Model '{}' not found — use File > Open Model", options.modelPath.toStdString());
+        logging::get(logging::channel::Io)->warn("Model '{}' not found — use File > Open Model", options.modelPath.toStdString());
         options.modelPath.clear();
     }
-    spdlog::info("Wind Tunnel {} starting", APPLICATION_VERSION_STR);
 
-    fluid::app::MainWindow window(options);
-    window.show();
-    return app.exec();
+    int status = 0;
+    {
+        fluid::app::MainWindow window(options);
+        window.show();
+        status = app.exec();
+    }
+    log->info("Shutting down (exit code {})", status);
+    logging::shutdown();
+    return status;
 }

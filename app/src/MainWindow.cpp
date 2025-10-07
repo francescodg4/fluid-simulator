@@ -1,5 +1,6 @@
 #include "MainWindow.hpp"
 
+#include "logging/Logging.hpp"
 #include "panels/FluidFlowPanel.hpp"
 #include "panels/OutlinerPanel.hpp"
 #include "panels/PropertiesPanel.hpp"
@@ -28,9 +29,10 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-#include <spdlog/spdlog.h>
-
 namespace fluid::app {
+namespace {
+    std::shared_ptr<spdlog::logger> appLog() { return logging::get(logging::channel::App); }
+}
 
 MainWindow::MainWindow(const StartupOptions& options, QWidget* parent)
     : QMainWindow(parent)
@@ -110,6 +112,7 @@ MainWindow::MainWindow(const StartupOptions& options, QWidget* parent)
             return;
         }
         m_resumeAfterBuild = m_resumeAfterBuild || m_simulation->isRunning();
+        appLog()->info("Rebuilding wind tunnel ({} collision objects, resolution {})", m_doc->collisionObjects().size(), m_doc->tunnel().resolution);
         m_simulation->setRunning(false);
         m_simulation->rebuild(m_doc->rebuildRequest());
     });
@@ -151,6 +154,7 @@ MainWindow::MainWindow(const StartupOptions& options, QWidget* parent)
         m_timeline->setProgress(snapshot->stats.step, snapshot->stats.physicalTime);
         if (m_simulation->isRunning() && snapshot->stats.step >= m_timeline->endStep()) {
             m_simulation->setRunning(false);
+            appLog()->info("Reached the end iteration {} — solver paused", m_timeline->endStep());
             statusBar()->showMessage(tr("Reached the end iteration — solver paused"), 5000);
         }
     });
@@ -170,7 +174,6 @@ MainWindow::MainWindow(const StartupOptions& options, QWidget* parent)
     connect(m_properties, &PropertiesPanel::previewReportRequested, this, &MainWindow::previewReport);
     connect(m_reports, &ReportService::exported, this, [this](const QString& path) {
         statusBar()->showMessage(tr("Report written to %1").arg(path), 8000);
-        spdlog::info("Report written to {}", path.toStdString());
     });
     connect(m_reports, &ReportService::failed, this, [this](const QString& message) { QMessageBox::warning(this, tr("Report"), message); });
 
@@ -209,6 +212,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
 void MainWindow::openModel(const QString& path)
 {
     m_options.modelPath = path;
+    appLog()->info("Opening model {}", path.toStdString());
     m_resumeAfterBuild = true;
     m_meshProvider->load(path);
 }
@@ -493,6 +497,7 @@ void MainWindow::applyWorkspace(int index)
     default:
         return;
     }
+    appLog()->debug("Workspace '{}' activated", m_workspaces ? m_workspaces->tabText(index).toStdString() : std::to_string(index));
     m_doc->setView(v);
     m_doc->setTracers(t);
     m_doc->setTransferFunction(tf);
@@ -512,7 +517,10 @@ void MainWindow::saveScreenshot()
     }
     const QImage image = m_viewport->capture(true);
     if (image.save(path)) {
+        appLog()->info("Screenshot saved to {} ({}x{})", path.toStdString(), image.width(), image.height());
         statusBar()->showMessage(tr("Screenshot saved to %1").arg(path), 5000);
+    } else {
+        appLog()->error("Cannot save screenshot to {}", path.toStdString());
     }
 }
 
@@ -618,7 +626,7 @@ void MainWindow::runAutomation()
             p.drawImage(QRect(offset, m_viewport->size()), m_viewport->capture(true));
         }
         full.save(m_options.screenshotPath);
-        spdlog::info("Screenshot written to {}", m_options.screenshotPath.toStdString());
+        appLog()->info("Screenshot written to {}", m_options.screenshotPath.toStdString());
     }
     if (!m_options.reportPath.isEmpty()) {
         m_reports->exportPdf(collectReport(), m_options.reportPath).waitForFinished();

@@ -9,7 +9,7 @@
 #include <QPainter>
 #include <QWheelEvent>
 
-#include <spdlog/spdlog.h>
+#include "logging/Logging.hpp"
 
 #include <cmath>
 
@@ -244,7 +244,7 @@ void ViewportView::drawBackground(QPainter* painter, const QRectF&)
             });
             emit rendererReady(m_renderer.rendererInfo());
         } else {
-            spdlog::critical("Renderer initialisation failed");
+            logging::get(logging::channel::Render)->critical("Renderer initialisation failed");
         }
     }
     m_renderer.setModelMatrix(toQMatrix(m_doc->modelToWorld()));
@@ -258,7 +258,7 @@ void ViewportView::drawBackground(QPainter* painter, const QRectF&)
         static int n = 0;
         acc += renderTimer.nsecsElapsed() * 1e-6;
         if (++n == 30) {
-            spdlog::info("3D render: {:.1f} ms/frame", acc / n);
+            logging::get(logging::channel::Render)->info("3D render: {:.1f} ms/frame", acc / n);
             acc = 0;
             n = 0;
         }

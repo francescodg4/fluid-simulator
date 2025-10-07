@@ -1,8 +1,10 @@
 #include "services/ReportService.hpp"
 
+#include "logging/Logging.hpp"
 #include "version.h"
 
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QPageSize>
 #include <QPainter>
 #include <QPainterPath>
@@ -260,7 +262,10 @@ void ReportService::paint(QPainter& p, const ReportData& d, const QRectF& page)
 
 QFuture<QString> ReportService::exportPdf(ReportData data, const QString& path)
 {
+    logging::get(logging::channel::Report)->debug("Rendering report '{}' to {}", data.title.toStdString(), path.toStdString());
     QFuture<QString> future = QtConcurrent::run([data = std::move(data), path]() -> QString {
+        QElapsedTimer timer;
+        timer.start();
         QPdfWriter writer(path);
         writer.setPageSize(QPageSize(QPageSize::A4));
         writer.setPageMargins(QMarginsF(0, 0, 0, 0));
@@ -269,10 +274,12 @@ QFuture<QString> ReportService::exportPdf(ReportData data, const QString& path)
         writer.setCreator(QStringLiteral("Wind Tunnel %1").arg(QStringLiteral(APPLICATION_VERSION_STR)));
         QPainter painter;
         if (!painter.begin(&writer)) {
+            logging::get(logging::channel::Report)->error("Cannot open {} for writing", path.toStdString());
             return QObject::tr("Cannot write %1").arg(path);
         }
         paint(painter, data, QRectF(0, 0, writer.width(), writer.height()));
         painter.end();
+        logging::get(logging::channel::Report)->info("Report written to {} in {:.0f} ms", path.toStdString(), static_cast<double>(timer.nsecsElapsed()) * 1e-6);
         return {};
     });
     future.then(this, [this, path](const QString& error) {
