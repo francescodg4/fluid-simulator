@@ -6,6 +6,7 @@ configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h)
 qt_add_executable(windtunnel
   src/main.cpp
   src/MainWindow.cpp src/MainWindow.hpp
+  src/logging/LogModel.cpp src/logging/LogModel.hpp
   src/logging/Logging.cpp src/logging/Logging.hpp
   src/model/SceneDocument.cpp src/model/SceneDocument.hpp
   src/panels/FluidFlowPanel.cpp src/panels/FluidFlowPanel.hpp
