@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include "logging/LogModel.hpp"
 #include "logging/Logging.hpp"
 #include "ui/Theme.hpp"
 #include "version.h"
@@ -112,6 +113,9 @@ int main(int argc, char* argv[])
 
     int status = 0;
     {
+        logging::LogModel sessionLog; // captures from here on, including model loading
+        sessionLog.attachToLogging();
+        options.log = &sessionLog;
         fluid::app::MainWindow window(options);
         window.show();
         status = app.exec();

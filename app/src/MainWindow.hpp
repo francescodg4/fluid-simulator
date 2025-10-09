@@ -14,6 +14,11 @@ class QToolButton;
 
 namespace fluid::app {
 
+namespace logging {
+    class LogModel;
+}
+
+class LogPanel;
 class ViewportView;
 class FluidFlowPanel;
 class OutlinerPanel;
@@ -28,6 +33,7 @@ struct StartupOptions {
     QString screenshotPath; ///< capture after @ref automationDelay seconds and quit
     QString reportPath; ///< export a PDF report after @ref automationDelay seconds and quit
     double automationDelay = 8.0;
+    logging::LogModel* log = nullptr; ///< session log shown in the Info Log panel
 };
 
 /**
@@ -72,6 +78,7 @@ private:
     OutlinerPanel* m_outliner = nullptr;
     PropertiesPanel* m_properties = nullptr;
     TimelineWidget* m_timeline = nullptr;
+    LogPanel* m_logPanel = nullptr;
     QTabBar* m_workspaces = nullptr;
     QList<QToolButton*> m_shadingButtons;
     QToolButton* m_streamButton = nullptr;

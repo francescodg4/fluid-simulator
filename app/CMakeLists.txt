@@ -10,6 +10,7 @@ qt_add_executable(windtunnel
   src/logging/Logging.cpp src/logging/Logging.hpp
   src/model/SceneDocument.cpp src/model/SceneDocument.hpp
   src/panels/FluidFlowPanel.cpp src/panels/FluidFlowPanel.hpp
+  src/panels/LogPanel.cpp src/panels/LogPanel.hpp
   src/panels/OutlinerPanel.cpp src/panels/OutlinerPanel.hpp
   src/panels/PropertiesPanel.cpp src/panels/PropertiesPanel.hpp
   src/services/MeshProvider.cpp src/services/MeshProvider.hpp

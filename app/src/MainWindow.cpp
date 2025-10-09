@@ -2,6 +2,7 @@
 
 #include "logging/Logging.hpp"
 #include "panels/FluidFlowPanel.hpp"
+#include "panels/LogPanel.hpp"
 #include "panels/OutlinerPanel.hpp"
 #include "panels/PropertiesPanel.hpp"
 #include "ui/Theme.hpp"
@@ -65,7 +66,16 @@ MainWindow::MainWindow(const StartupOptions& options, QWidget* parent)
     va->setContentsMargins(0, 0, 0, 0);
     va->setSpacing(0);
     va->addWidget(buildViewportHeader());
-    va->addWidget(m_viewport, 1);
+    auto* viewportSplit = new QSplitter(Qt::Vertical);
+    viewportSplit->addWidget(m_viewport);
+    if (m_options.log) {
+        m_logPanel = new LogPanel(m_options.log);
+        viewportSplit->addWidget(m_logPanel);
+        viewportSplit->setStretchFactor(0, 1);
+        viewportSplit->setStretchFactor(1, 0);
+        viewportSplit->setSizes({ 720, 150 });
+    }
+    va->addWidget(viewportSplit, 1);
 
     m_outliner = new OutlinerPanel(m_doc);
     m_properties = new PropertiesPanel(m_doc, m_simulation);
@@ -294,6 +304,11 @@ void MainWindow::buildMenus(QMenuBar* bar)
 
     QMenu* view = bar->addMenu(tr("View"));
     view->addAction(tr("Toggle Sidebar"), this, [this] { m_viewport->setSidePanelVisible(!m_viewport->isSidePanelVisible()); });
+    view->addAction(theme::icon(theme::Icon::Report), tr("Toggle Info Log"), QKeySequence(Qt::CTRL | Qt::Key_L), this, [this] {
+        if (m_logPanel) {
+            m_logPanel->setVisible(!m_logPanel->isVisible());
+        }
+    });
     view->addAction(theme::icon(theme::Icon::Frame), tr("Frame Vehicle"), this, [this] { m_viewport->frameVehicle(); });
     view->addSeparator();
     view->addAction(tr("Front"), this, [this] { m_viewport->setViewPreset(ViewportView::ViewPreset::Front); });
