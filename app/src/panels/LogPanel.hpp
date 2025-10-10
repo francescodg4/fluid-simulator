@@ -15,7 +15,7 @@ class QToolButton;
 
 namespace fluid::app {
 
-/// Filters log records by level (a set of enabled levels) and by free text (message or channel).
+/** Filters log records by level (a set of enabled levels) and by free text (message or channel). */
 class LogFilterProxy : public QSortFilterProxyModel {
     Q_OBJECT
 public:
@@ -32,14 +32,16 @@ private:
     QString m_text;
 };
 
-/// The session log with coloured levels, per-level filter toggles
-/// with counts, text search, capture verbosity, auto-scroll, copy and clear.
+/**
+ * The session log with coloured levels, per-level filter toggles
+ * with counts, text search, capture verbosity, auto-scroll, copy and clear.
+ */
 class LogPanel : public QWidget {
     Q_OBJECT
 public:
     explicit LogPanel(logging::LogModel* model, QWidget* parent = nullptr);
 
-    /// Colour used for a level's text and badge.
+    /** Colour used for a level's text and badge. */
     static QColor levelColor(spdlog::level::level_enum level);
 
 protected:

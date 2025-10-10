@@ -12,11 +12,13 @@ and a Blender-style UI (dark, blue) built on **`QGraphicsView` + OpenGL 3.3** sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # also extracts the sample OBJ into build/assets
 cmake --build build -j
 ./build/tests/run-test                            # Catch2 unit tests (core library)
+./build/tests/run-app-test                        # application tests (logging)
 ./build/app/windtunnel                            # launches with the Mustang loaded and the solver running
 ```
 
 Useful options: `--resolution 224`, `--workspace 0..4`, `--paused`, `--model file.obj`,
-`--screenshot out.png` / `--report out.pdf` (with `--delay s`) for headless captures.
+`--screenshot out.png` / `--report out.pdf` (with `--delay s`) for headless captures,
+`--log-level trace|debug|info|warn|error` and `--log-file path|none`.
 Requires Qt ≥ 6.2 (Widgets, OpenGL, OpenGLWidgets, Concurrent). spdlog, argparse and Catch2 are fetched by CMake.
 
 ## Using it
@@ -31,6 +33,7 @@ Requires Qt ≥ 6.2 (Widgets, OpenGL, OpenGLWidgets, Concurrent). spdlog, argpar
 | **Outliner** | collections with visibility 👁 and collision 🛡 toggles and a search filter |
 | **Properties** | 🎨 scalar field, range, colormap and an interactive **transfer-function editor** (a `QGraphicsView` with draggable control points over a live histogram) · 📈 Cd/Cl/Cs, forces, drag power, convergence · 📄 PDF report with preview |
 | **Timeline** | run / step / reset, iteration counter, end iteration (auto-pause) and a Cd/Cl trace under the playhead |
+| **Info Log** (below the viewport, Ctrl+L) | session log with coloured levels; toggle trace / debug / info / warning / error (with counts), search messages and channels, change the capture level, auto-scroll, copy, clear, open the log file |
 
 All numeric fields are Blender-style: drag to scrub (Shift = fine, Ctrl = snap), click to type, Ctrl+wheel to step.
 
@@ -61,6 +64,12 @@ app/    Qt 6 application
   widgets/, panels/, ui/       ValueField, CollapsibleSection, TransferFunctionEditor, Timeline,
                                Outliner, Properties, theme + vector icon factory (no image assets)
 ```
+
+**Logging** is built on spdlog (`app/src/logging`). Every subsystem logs to a named channel
+(`app`, `io`, `simulation`, `render`, `report`, `qt`). All channels share one distribution sink that
+feeds a coloured console, a rotating log file (in the application data folder under `logs/`, 5 MB × 3)
+and the Info Log panel. The panel's sink batches records from any thread into a bounded Qt model
+(5,000 records), so the solver thread can log freely. Qt's own messages go to the `qt` channel.
 
 **Rendering quality** is adaptive. On a GPU the viewport uses the full 1.47M-triangle mesh with 4× MSAA.
 On a software rasterizer (for example `llvmpipe` in a container without GPU passthrough) it switches to

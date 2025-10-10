@@ -59,7 +59,7 @@ namespace {
         return QIcon(pm);
     }
 
-    /// Paints one record: time, level badge, channel and the message coloured by level.
+    /** Paints one record: time, level badge, channel and the message coloured by level. */
     class LogDelegate : public QStyledItemDelegate {
     public:
         using QStyledItemDelegate::QStyledItemDelegate;
